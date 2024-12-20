@@ -37,16 +37,20 @@ class UserGenerator(QtWidgets.QWidget):
         self.button_schliessen.clicked.connect(self.close)
         self.form_layout.addWidget(self.button_schliessen, 0, 3)
 
-        #daten       
-        self.userOU_input = self.create_input_field("Benutzer OU", self.userOU, 1, "color: black;")
-        self.groupOU_input = self.create_input_field("Gruppe OU", self.groupOU, 2, "color: black;")
-        self.domainName_input = self.create_input_field("Domänename", self.domainName, 3, "color: black;")
+        #daten read only
+        self.userOU_input = self.create_input_field("Benutzer OU", self.userOU, 1, "color: gray;", "color: gray;")
+        self.userOU_input.setReadOnly(True)
+        self.groupOU_input = self.create_input_field("Gruppe OU", self.groupOU, 2, "color: gray;", "color: gray;")
+        self.groupOU_input.setReadOnly(True)
+        self.domainName_input = self.create_input_field("Domänename", self.domainName, 3, "color: gray;", "color: gray;")
+        self.domainName_input.setReadOnly(True)
         
-        self.vorname_input = self.create_input_field("Benutzervorname", "", 4, "color: blue;", self.on_name_aendert)
-        self.nachname_input = self.create_input_field("Benutzernachname", "", 5, "color: blue;", self.on_name_aendert)
-        self.defaultPassword_input = self.create_input_field("Benutzerkennwort", self.defaultPassword, 6, "color: black;")
-        self.userName_input = self.create_input_field("Benutzername", "", 7, "color: black;", self.on_name_aendert)
-        self.email_input = self.create_input_field("E-Mail", "", 8, "color: black;")
+        #daten
+        self.vorname_input = self.create_input_field("Benutzervorname", "", 4, "color: blue;", "color: black;", self.on_name_aendert)
+        self.nachname_input = self.create_input_field("Benutzernachname", "", 5, "color: blue;", "color: black;", self.on_name_aendert)
+        self.defaultPassword_input = self.create_input_field("Benutzerkennwort", self.defaultPassword, 6, "color: black;", "color: black;")
+        self.userName_input = self.create_input_field("Benutzername", "", 7, "color: black;", "color: black;", self.on_name_aendert)
+        self.email_input = self.create_input_field("E-Mail", "", 8, "color: black;", "color: black;")
         
         #gruppen
         self.var_groups_list = []
@@ -72,11 +76,12 @@ class UserGenerator(QtWidgets.QWidget):
         groups = result.split('\n')
         return [group for group in groups if group and group.strip()]
         
-    def create_input_field(self, label_text, default_value, row, LabelStyle, callback=None):
+    def create_input_field(self, label_text, default_value, row, LabelStyle, LineEditStyle, callback=None):
         label = QtWidgets.QLabel(label_text, self)
         label.setStyleSheet(LabelStyle)
         self.form_layout.addWidget(label, row, 1)
         input_field = QtWidgets.QLineEdit(self)
+        input_field.setStyleSheet(LineEditStyle)
         input_field.setText(default_value)
         if callback:
             input_field.textChanged.connect(callback)
