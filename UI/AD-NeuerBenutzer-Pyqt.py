@@ -2,6 +2,8 @@ import sys
 import msvcrt
 import subprocess
 from PyQt5 import QtWidgets
+from PyQt5.QtGui import QRegExpValidator
+from PyQt5.QtCore import QRegExp
 
 class UserGenerator(QtWidgets.QWidget):
     
@@ -44,13 +46,29 @@ class UserGenerator(QtWidgets.QWidget):
         self.groupOU_input.setReadOnly(True)
         self.domainName_input = self.create_input_field("Domänename", self.domainName, 3, "color: gray;", "color: gray;")
         self.domainName_input.setReadOnly(True)
-        
-        #daten
-        self.vorname_input = self.create_input_field("Benutzervorname", "", 4, "color: blue;", "color: black;", self.on_name_aendert)
-        self.nachname_input = self.create_input_field("Benutzernachname", "", 5, "color: blue;", "color: black;", self.on_name_aendert)
+
+        #daten & validators
+        #vorname
+        name_regex = QRegExp("^[A-Za-z]{1,50}$")
+        self.vorname_input = self.create_input_field("Benutzer-vorname", "", 4, "color: blue;", "color: black;", self.on_vornachname_aendert)
+        vorname_validator = QRegExpValidator(name_regex, self.vorname_input)
+        self.vorname_input.setValidator(vorname_validator)
+        #nachname
+        self.nachname_input = self.create_input_field("Benutzer-nachname", "", 5, "color: blue;", "color: black;", self.on_vornachname_aendert)
+        nachname_validator = QRegExpValidator(name_regex, self.vorname_input)
+        self.nachname_input.setValidator(nachname_validator)
+        #passwort
         self.defaultPassword_input = self.create_input_field("Benutzerkennwort", self.defaultPassword, 6, "color: black;", "color: black;")
-        self.userName_input = self.create_input_field("Benutzername", "", 7, "color: black;", "color: black;", self.on_name_aendert)
+        #benutzername
+        self.userName_input = self.create_input_field("Benutzername", "", 7, "color: black;", "color: black;", self.on_benutzername_aendert)
+        username_regex = QRegExp("^[a-zA-Z0-9_]{1,20}$")
+        username_validator = QRegExpValidator(username_regex, self.userName_input)
+        self.userName_input.setValidator(username_validator)
+        #email
         self.email_input = self.create_input_field("E-Mail", "", 8, "color: black;", "color: black;")
+        email_regex = QRegExp(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$")
+        email_validator = QRegExpValidator(email_regex, self.email_input)
+        self.email_input.setValidator(email_validator)
         
         #gruppen
         self.var_groups_list = []
@@ -88,7 +106,7 @@ class UserGenerator(QtWidgets.QWidget):
         self.form_layout.addWidget(input_field, row, 2)
         return input_field
         
-    def on_name_aendert(self):
+    def on_vornachname_aendert(self):
         userName = f"{self.vorname_input.text().lower()}.{self.nachname_input.text().lower()}"
         emailAddress = f"{userName}@{self.domainName_input.text()}"
 
@@ -99,7 +117,10 @@ class UserGenerator(QtWidgets.QWidget):
         self.userName_input.setText(userName)
         self.email_input.setText(emailAddress)
         self.pruefe_daten()
-    
+
+    def on_benutzername_aendert(self):
+        self.pruefe_daten()
+
     def pruefe_daten(self):
         if len(self.userName_input.text()) == 0 or len(self.userName_input.text()) > 20:
             self.button_generiere.setEnabled(False)
