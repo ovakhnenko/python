@@ -59,6 +59,9 @@ class UserGenerator(QtWidgets.QWidget):
         self.nachname_input.setValidator(nachname_validator)
         #passwort
         self.defaultPassword_input = self.create_input_field("Benutzerkennwort", self.defaultPassword, 6, "color: black;", "color: black;")
+        passwort_regex = QRegExp("^[a-zA-Z0-9!@#$%^&*()_+.,;:<>?~=-]{8,30}$")
+        passwort_validator = QRegExpValidator(passwort_regex, self.defaultPassword_input)
+        self.defaultPassword_input.setValidator(passwort_validator)
         #benutzername
         self.userName_input = self.create_input_field("Benutzername", "", 7, "color: black;", "color: black;", self.on_benutzername_aendert)
         username_regex = QRegExp("^[a-zA-Z0-9_]{1,20}$")
