@@ -106,7 +106,6 @@ class UserGenerator(QtWidgets.QWidget):
     
     def on_generiere_button_click(self):
         selected_groups = [group.text() for i, group in enumerate(self.var_groups_list) if group.isChecked()]
-        print(selected_groups)
 
         ps_new_aduser = f"""
             New-ADUser -GivenName '{self.vorname_input.text()}' `
@@ -121,11 +120,13 @@ class UserGenerator(QtWidgets.QWidget):
             -ChangePasswordAtLogon $true `
             -Enabled $true
             """
+        print(ps_new_aduser)
         result = self.ps_run(ps_new_aduser)
         print(result)
         
         for group in selected_groups: 
             ps_user_group = f"Add-ADGroupMember -Identity {group} -Members {self.userName_input.text()}"
+            print(ps_user_group)
             result = self.ps_run(ps_user_group)
             print(result)
 
