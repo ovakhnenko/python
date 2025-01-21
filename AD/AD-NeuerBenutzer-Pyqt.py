@@ -1,14 +1,14 @@
+
+#!/usr/bin/env python
 #
 # WW: import-module ActiveDirectory
 # WS: Add-WindowsFeature -Name "RSAT-AD-PowerShell" -IncludeAllSubFeature
 #
 
-#Drystart = False
-Drystart = True
-
 import sys
 import msvcrt
 import subprocess
+import configparser
 from PyQt5 import QtWidgets
 from PyQt5.QtGui import QRegExpValidator
 from PyQt5.QtCore import QRegExp
@@ -19,19 +19,18 @@ class UserGenerator(QtWidgets.QWidget):
     
     def __init__(self):
         super().__init__()
-        
-        if Drystart == True:
-            self.defaultPassword = "Start1234!"
-            self.userOU = "OU=Users,OU=TEST,DC=test,DC=local"  
-            self.groupOU = "OU=Groups,OU=TEST,DC=test,DC=local"
-            self.domainName = "test.local"
-        else:
-            self.defaultPassword = "Start1234!"
-            self.userOU = "OU=Users,OU=KAWU,DC=ad,DC=kanzleiwunderlich,DC=de"  
-            self.groupOU = "OU=Groups,OU=KAWU,DC=ad,DC=kanzleiwunderlich,DC=de"
-            self.domainName = "kanzleiwunderlich.de"
-        
-        self.init_ui()
+
+        try:
+            config = configparser.ConfigParser()
+            config.read('AD-NeuerBenutzer-Pyqt.cfg')
+            self.defaultPassword = config['Config']['defaultPassword']
+            self.userOU = config['Config']['userOU'] 
+            self.groupOU = config['Config']['groupOU']
+            self.domainName = config['Config']['domainName']
+
+            self.init_ui()
+        except:
+            QtWidgets.QMessageBox.critical(self, 'Fehler', 'Ein Fehler beim Lesen der Config-Datei.')
         
     def init_ui(self):
         layout = QtWidgets.QVBoxLayout(self)
@@ -79,10 +78,15 @@ class UserGenerator(QtWidgets.QWidget):
 
         #daten & validators
         #vorname
-        name_regex = QRegExp("^[A-Za-z]{1,50}$")
+        name_regex = QRegExp("^[A-Za-z0-9\\- ]{1,50}$")
         self.vorname_input = self.create_input_field("Benutzer-vorname", "", 5, "color: blue;", "color: black;", self.on_vornachname_aendert)
         vorname_validator = QRegExpValidator(name_regex, self.vorname_input)
         self.vorname_input.setValidator(vorname_validator)
+        #vor- nachname ändern
+        self.vornachname_checkbox = QtWidgets.QCheckBox('Ändern', self)
+        self.vornachname_checkbox.clicked.connect(self.on_vornachname_checkbox_clicked)
+        self.vornachname_checkbox.setStyleSheet("color: red;")
+        self.form_layout.addWidget(self.vornachname_checkbox, 5, 3)
         #nachname
         self.nachname_input = self.create_input_field("Benutzer-nachname", "", 6, "color: blue;", "color: black;", self.on_vornachname_aendert)
         nachname_validator = QRegExpValidator(name_regex, self.vorname_input)
@@ -107,6 +111,11 @@ class UserGenerator(QtWidgets.QWidget):
         email_regex = QRegExp(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$")
         email_validator = QRegExpValidator(email_regex, self.email_input)
         self.email_input.setValidator(email_validator)
+        #email ändern
+        self.email_checkbox = QtWidgets.QCheckBox('Ändern', self)
+        self.email_checkbox.clicked.connect(self.on_email_checkbox_clicked)
+        self.email_checkbox.setStyleSheet("color: red;")
+        self.form_layout.addWidget(self.email_checkbox, 9, 3)
         
         #gruppen
         self.var_groups_list = []
@@ -123,12 +132,18 @@ class UserGenerator(QtWidgets.QWidget):
             self.form_layout.addWidget(checkbox, 10 + i, 0, 1, 4)
             self.var_groups_list.append(checkbox)
 
-        layout.addWidget(self.scroll_area)
-        self.standardwertenEinstellen()
+        #groups ändern
+        self.groups_checkbox = QtWidgets.QCheckBox('Ändern', self)
+        self.groups_checkbox.clicked.connect(self.on_groups_checkbox_clicked)
+        self.groups_checkbox.setStyleSheet("color: red;")
+        self.form_layout.addWidget(self.groups_checkbox, 10, 3)
 
         self.progress_bar = QtWidgets.QProgressBar()
         self.progress_bar.setValue(0)
-        self.form_layout.addWidget(self.progress_bar, 100, 2)
+        layout.addWidget(self.progress_bar)
+
+        layout.addWidget(self.scroll_area)
+        self.standardwertenEinstellen()
 
     def benutzer_hinzufuegen(self):
         self.benutzername_combo.clear()
@@ -158,15 +173,17 @@ class UserGenerator(QtWidgets.QWidget):
         return input_field
         
     def on_vornachname_aendert(self):
-        userName = f"{self.vorname_input.text().lower()}.{self.nachname_input.text().lower()}"
-        emailAddress = f"{userName}@{self.domainName_input.text()}"
+        if self.benutzername_combo.currentText() == neuer_benutzer_prefix: 
+            userName = f"{self.vorname_input.text().lower()}.{self.nachname_input.text().lower()}"
+            emailAddress = f"{userName}@{self.domainName_input.text()}"
 
-        if len(self.vorname_input.text()) + len(self.nachname_input.text()) == 0:
-            userName = ""
-            emailAddress = ""
+            if len(self.vorname_input.text()) + len(self.nachname_input.text()) == 0:
+                userName = ""
+                emailAddress = ""
 
-        self.userName_input.setText(userName)
-        self.email_input.setText(emailAddress)
+            self.userName_input.setText(userName)
+            self.email_input.setText(emailAddress)
+    
         self.pruefe_daten()
 
     def on_benutzername_aendert(self):
@@ -175,12 +192,18 @@ class UserGenerator(QtWidgets.QWidget):
     def on_benutzernamecombo_aendert(self):
         if self.benutzername_combo.currentText() == neuer_benutzer_prefix:
             self.passwort_checkbox.setChecked(True)
+            self.vornachname_checkbox.setChecked(True)
+            self.email_checkbox.setChecked(True)
+            self.set_groups_checkbox_state(True)
             self.defaultPassword_input.setText(self.defaultPassword)
             self.vorname_input.setText("")
             self.nachname_input.setText("")
             self.email_input.setText("")
         else:
             self.passwort_checkbox.setChecked(False)
+            self.vornachname_checkbox.setChecked(False)
+            self.email_checkbox.setChecked(False)
+            self.set_groups_checkbox_state(False)
             self.setEnabled(False)
             self.defaultPassword_input.setText("")
             self.vorname_input.setText("")
@@ -215,6 +238,7 @@ class UserGenerator(QtWidgets.QWidget):
             result = self.ps_run(f"Get-ADPrincipalGroupMembership {samaccount_text[0]} | Select-Object -ExpandProperty Name")
             groups_text = result.split('\n')
 
+            self.userName_input.setText(samaccount_text[0])
             self.vorname_input.setText(vorname_text[0])
             self.nachname_input.setText(nachname_text[0])
             self.email_input.setText(email_text[0])
@@ -241,46 +265,115 @@ class UserGenerator(QtWidgets.QWidget):
             self.userName_input.setEnabled(False)
 
         self.defaultPassword_input.setEnabled(self.passwort_checkbox.isChecked())
+        self.vorname_input.setEnabled(self.vornachname_checkbox.isChecked())
+        self.nachname_input.setEnabled(self.vornachname_checkbox.isChecked())
+        self.email_input.setEnabled(self.email_checkbox.isChecked())
+        self.set_groups_checkbox_state(self.groups_checkbox.isChecked())
 
     def on_generiere_button_click(self):
         selected_groups = [group.text() for i, group in enumerate(self.var_groups_list) if group.isChecked()]
 
-        ps_new_aduser = f"""
-            New-ADUser -GivenName '{self.vorname_input.text()}' `
-            -Surname '{self.nachname_input.text()}' `
-            -Name '{self.vorname_input.text()} {self.nachname_input.text()}' `
-            -SamAccountName '{self.userName_input.text()}' `
-            -UserPrincipalName '{self.email_input.text()}' `
-            -EmailAddress '{self.email_input.text()}' `
-            -Path '{self.userOU_input.text()}' `
-            -AccountPassword (ConvertTo-SecureString '{self.defaultPassword_input.text()}' -AsPlainText -Force) `
-            -PasswordNeverExpires $false `
-            -ChangePasswordAtLogon $true `
-            -Enabled $true
-            """
-        print(ps_new_aduser)
-        result = self.ps_run(ps_new_aduser)
-        print(result)
-        
-        for group in selected_groups: 
-            ps_user_group = f"Add-ADGroupMember -Identity {group} -Members {self.userName_input.text()}"
-            print(ps_user_group)
-            result = self.ps_run(ps_user_group)
-            print(result)
+        self.setEnabled(False)
 
-        self.standardwertenEinstellen()
+        if self.benutzername_combo.currentText() == neuer_benutzer_prefix: 
+            #Benutzer anlegen
+            try:
+                self.progress_bar.setValue(44)
+                ps_new_aduser = f""" `
+                    New-ADUser -GivenName '{self.vorname_input.text()}' `
+                    -Surname '{self.nachname_input.text()}' `
+                    -Name '{self.vorname_input.text()} {self.nachname_input.text()}' `
+                    -SamAccountName '{self.userName_input.text()}' `
+                    -UserPrincipalName '{self.email_input.text()}' `
+                    -EmailAddress '{self.email_input.text()}' `
+                    -Path '{self.userOU_input.text()}' `
+                    -AccountPassword (ConvertTo-SecureString '{self.defaultPassword_input.text()}' -AsPlainText -Force) `
+                    -PasswordNeverExpires $false `
+                    -ChangePasswordAtLogon $true `
+                    -Enabled $true
+                    """
+                result = self.ps_run(ps_new_aduser)
+        
+                self.progress_bar.setValue(99)
+                for group in selected_groups: 
+                    ps_user_group = f"Add-ADGroupMember -Identity \"{group}\" -Members {self.userName_input.text()}"
+                    result = self.ps_run(ps_user_group)
+
+                QtWidgets.QMessageBox.information(self, 'Erfolg', 'Die Operation wurde erfolgreich beendet.')
+                self.standardwertenEinstellen()
+            except:
+                QtWidgets.QMessageBox.critical(self, 'Fehler', 'Die Operation wurde nicht erfolgreich beendet.')
+        else:
+            #Zustand ändern
+            try:
+                self.progress_bar.setValue(11)
+                result = self.ps_run(f"Get-ADUser -filter \"UserPrincipalName -eq '{self.benutzername_combo.currentText()}'\" | Select-Object -ExpandProperty SamAccountName")
+                samaccount_text = result.split('\n')
+                
+                self.benutzer_zustand = '$false' if self.zustand_checkbox .isChecked() else '$true'
+                self.progress_bar.setValue(22)
+                result = self.ps_run(f"Set-ADUser {samaccount_text[0]} -Enabled {self.benutzer_zustand}")
+
+                #Vor-Nachname ändern
+                if self.vornachname_checkbox.isChecked():
+                    self.progress_bar.setValue(99)
+                    result = self.ps_run(f"Set-ADUser {samaccount_text[0]} -GivenName \"{self.vorname_input.text()}\" -Surname \"{self.nachname_input.text()}\"")
+
+                #EMail ändern
+                if self.email_checkbox.isChecked():
+                    self.progress_bar.setValue(99)
+                    result = self.ps_run(f"Set-ADUser {samaccount_text[0]} -EMailAddress \"{self.email_input.text()}\"")
+
+                #Benutzerpass ändern
+                if self.passwort_checkbox.isChecked():
+                    self.progress_bar.setValue(99)
+                    result = self.ps_run(f"Set-ADAccountPassword {samaccount_text[0]} -Reset -NewPassword (ConvertTo-SecureString '{self.defaultPassword_input.text()}' -AsPlainText -Force)")
+
+                #groups andern
+                if self.groups_checkbox.isChecked():
+                    self.progress_bar.setValue(99)
+                    for i, group in enumerate(self.var_groups_list):
+                        if group.isChecked():
+                            ps_user_group = f"Add-ADGroupMember -Identity \"{group.text()}\" -Members {self.userName_input.text()} -Confirm:$false"
+                        else:
+                            ps_user_group = f"Remove-ADGroupMember -Identity \"{group.text()}\" -Members {self.userName_input.text()} -Confirm:$false"
+
+                QtWidgets.QMessageBox.information(self, 'Erfolg', 'Die Operation wurde erfolgreich beendet.')
+                self.standardwertenEinstellen()
+            except:
+                QtWidgets.QMessageBox.critical(self, 'Fehler', 'Die Operation wurde nicht erfolgreich beendet.')
+
+        self.setEnabled(True)
+        self.progress_bar.setValue(00)
     
     def on_default_button_click(self):
         self.standardwertenEinstellen()
 
     def on_pass_checkbox_clicked(self):
         self.defaultPassword_input.setEnabled(self.passwort_checkbox.isChecked())
-    
+
+    def on_vornachname_checkbox_clicked(self):        
+        self.vorname_input.setEnabled(self.vornachname_checkbox.isChecked())
+        self.nachname_input.setEnabled(self.vornachname_checkbox.isChecked())
+
+    def on_email_checkbox_clicked(self):    
+        self.email_input.setEnabled(self.email_checkbox.isChecked())
+
+    def on_groups_checkbox_clicked(self):
+        self.set_groups_checkbox_state(self.groups_checkbox.isChecked())
+
+    def set_groups_checkbox_state(self, state):
+        for i, group in enumerate(self.var_groups_list):
+            group.setEnabled(state)
+
     def ps_run(self, ps_command):
-        completed = subprocess.run(["powershell", "-Command", ps_command], capture_output=True, text=True, shell=True)
+        completed = subprocess.run(["powershell", "-Command", ps_command], capture_output=True, text=True, check=True)
         return completed.stdout
-    
+
     def standardwertenEinstellen(self):
+        self.setEnabled(False)
+        self.progress_bar.setValue(22)
+
         self.userOU_input.setText(self.userOU)
         self.groupOU_input.setText(self.groupOU)
         self.domainName_input.setText(self.domainName)
@@ -292,11 +385,19 @@ class UserGenerator(QtWidgets.QWidget):
         
         self.defaultPassword_input.setEnabled(True)
         self.passwort_checkbox.setChecked(True)
+        self.vornachname_checkbox.setChecked(True)
+        self.email_checkbox.setChecked(True)
+
+        self.progress_bar.setValue(99)
         self.benutzer_hinzufuegen()
 
         for i, group in enumerate(self.var_groups_list):
             group.setChecked(False)
+        self.set_groups_checkbox_state(True)
 
+        self.progress_bar.setValue(0)
+        self.setEnabled(True)
+        self.pruefe_daten()
         self.vorname_input.setFocus()
     
 if __name__ == "__main__":
